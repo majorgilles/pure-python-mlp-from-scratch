@@ -1,0 +1,10 @@
+[project]
+name = "pure-python-mlp-from-scratch"
+version = "0.1.0"
+description = "A Week 05 one-hidden-layer MLP implemented with only the Python standard library."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
