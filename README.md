@@ -4,6 +4,19 @@ This is a separate learning repo for re-implementing the Week 05 small neural ne
 
 The goal is not maximum performance. The goal is to see every moving part.
 
+## Time estimate
+
+Estimated learning/build time: **6-10 hours total**.
+
+- Repo setup and scope check: **15-30 minutes**
+- Pure-Python moons dataset and split: **45-90 minutes**
+- Forward pass, sigmoid, and BCE-with-logits loss: **1-2 hours**
+- Hand-written backpropagation: **2-3 hours**
+- Adam optimizer and training metrics: **1-2 hours**
+- README/artifacts/tests polish: **1-2 hours**
+
+If you only want to run the finished script and read through it, expect about **30-60 minutes**.
+
 ## What this implements
 
 The model matches the Week 05 MLP shape:
