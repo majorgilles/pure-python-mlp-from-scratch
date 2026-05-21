@@ -6,10 +6,10 @@ The goal is not maximum performance. The goal is to see every moving part.
 
 ## Time estimate
 
-Estimated learning/build time: **6-10 hours total**.
+Estimated learning/build time: **5-9 hours total**.
 
 - Repo setup and scope check: **15-30 minutes**
-- Pure-Python moons dataset and split: **45-90 minutes**
+- Load the existing Week 05 moons CSV and split it: **20-45 minutes**
 - Forward pass, sigmoid, and BCE-with-logits loss: **1-2 hours**
 - Hand-written backpropagation: **2-3 hours**
 - Adam optimizer and training metrics: **1-2 hours**
@@ -35,7 +35,7 @@ probability < 0.5 -> class 0
 
 Everything is implemented with Python standard-library code:
 
-- two-moons dataset generation
+- loading the checked-in Week 05 moons CSV
 - stratified train/test split
 - weights and biases as lists of floats
 - forward pass
@@ -47,7 +47,8 @@ Everything is implemented with Python standard-library code:
 - accuracy measurement
 - ASCII decision-boundary rendering
 
-No `torch`, `numpy`, `pandas`, `sklearn`, or autograd is used.
+No `torch`, `numpy`, `pandas`, `sklearn`, or autograd is used by this repo.
+The checked-in dataset was generated earlier by the Week 05 notebook, then reused here so this project can focus on the MLP mechanics.
 
 ## Run it
 
@@ -57,9 +58,9 @@ python mlp_from_scratch.py
 
 Default settings mirror the Week 05 notebook:
 
-- 500 moon-shaped examples
-- noise `0.25`
-- seed `42`
+- checked-in dataset at `data/week-05-moons.csv`
+- 500 moon-shaped examples from the original Week 05 run
+- seed `42` for the train/test split and weight initialization
 - 400 train examples / 100 test examples
 - 16 hidden units
 - 2000 epochs
@@ -71,6 +72,7 @@ Useful options:
 python mlp_from_scratch.py --hidden-units 4
 python mlp_from_scratch.py --hidden-units 64
 python mlp_from_scratch.py --epochs 500 --report-every 100
+python mlp_from_scratch.py --data-path data/week-05-moons.csv
 ```
 
 ## Generated artifacts
@@ -78,7 +80,6 @@ python mlp_from_scratch.py --epochs 500 --report-every 100
 Running the script writes:
 
 ```text
-artifacts/moons.csv
 artifacts/training_history.csv
 artifacts/ascii_decision_boundary.txt
 ```

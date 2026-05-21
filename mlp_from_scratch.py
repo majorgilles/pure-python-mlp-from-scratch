@@ -3,7 +3,7 @@
 No PyTorch, NumPy, pandas, scikit-learn, or autograd is used here. The point of
 this file is to make every moving part visible:
 
-1. Generate the two-moons dataset.
+1. Load the existing Week 05 two-moons CSV.
 2. Split it into train/test rows.
 3. Store weights and biases as Python lists of floats.
 4. Run the forward pass by hand.
@@ -24,6 +24,9 @@ from pathlib import Path
 FeatureVector = tuple[float, float]
 Vector = list[float]
 Matrix = list[list[float]]
+
+DEFAULT_DATA_PATH = Path(__file__).resolve().parent / "data" / "week-05-moons.csv"
+REQUIRED_DATASET_COLUMNS = ("x_position", "y_position", "class_label")
 
 
 @dataclass(frozen=True)
@@ -71,8 +74,7 @@ class TrainingResult:
 class CliOptions:
     """Command-line options with concrete types."""
 
-    samples: int
-    noise: float
+    data_path: Path
     seed: int
     test_size: float
     hidden_units: int
@@ -94,72 +96,89 @@ def zeros_like_matrix(matrix: Matrix) -> Matrix:
     return [[0.0 for _ in row] for row in matrix]
 
 
-def linspace(start: float, stop: float, count: int) -> list[float]:
-    """Return evenly spaced values, matching the idea of numpy.linspace."""
+def resolve_data_path(data_path: Path) -> Path:
+    """Resolve CLI data paths while allowing `--data-path ~/file.csv`."""
 
-    if count <= 0:
-        return []
-    if count == 1:
-        return [start]
-
-    step = (stop - start) / float(count - 1)
-    return [start + step * float(index) for index in range(count)]
+    expanded_path = data_path.expanduser()
+    if expanded_path.is_absolute():
+        return expanded_path
+    return (Path.cwd() / expanded_path).resolve()
 
 
-def make_moons(n_samples: int, noise: float, seed: int) -> list[Example]:
-    """Create a small two-moons dataset without scikit-learn.
+def parse_float(raw_value: str | None, column_name: str, row_number: int) -> float:
+    if raw_value is None:
+        raise ValueError(f"Missing {column_name!r} in CSV row {row_number}.")
 
-    This follows the same geometry as sklearn.datasets.make_moons:
+    try:
+        return float(raw_value)
+    except ValueError as error:
+        raise ValueError(
+            f"Could not parse {column_name!r} as float in CSV row {row_number}: "
+            f"{raw_value!r}"
+        ) from error
 
-    - class 0 is an upper half-circle
-    - class 1 is a lower shifted half-circle
-    - Gaussian noise makes the task realistic
 
-    The exact numbers are not byte-for-byte identical to scikit-learn because
-    Python's standard-library random generator is used instead of NumPy's.
-    """
+def parse_class_label(raw_value: str | None, row_number: int) -> int:
+    if raw_value is None:
+        raise ValueError(f"Missing 'class_label' in CSV row {row_number}.")
 
-    if n_samples < 2:
-        raise ValueError("n_samples must be at least 2.")
-    if noise < 0.0:
-        raise ValueError("noise must be non-negative.")
+    try:
+        label = int(raw_value)
+    except ValueError as error:
+        raise ValueError(
+            f"Could not parse 'class_label' as int in CSV row {row_number}: "
+            f"{raw_value!r}"
+        ) from error
 
-    rng = random.Random(seed)
-    outer_count = n_samples // 2
-    inner_count = n_samples - outer_count
-    examples: list[Example] = []
-
-    for angle in linspace(0.0, math.pi, outer_count):
-        examples.append(
-            Example(
-                x_position=math.cos(angle),
-                y_position=math.sin(angle),
-                class_label=0,
-            )
+    if label not in (0, 1):
+        raise ValueError(
+            f"Expected 'class_label' to be 0 or 1 in CSV row {row_number}, "
+            f"got {label}."
         )
 
-    for angle in linspace(0.0, math.pi, inner_count):
-        examples.append(
-            Example(
-                x_position=1.0 - math.cos(angle),
-                y_position=1.0 - math.sin(angle) - 0.5,
-                class_label=1,
+    return label
+
+
+def load_examples_csv(path: Path) -> list[Example]:
+    """Load the checked-in Week 05 moons dataset with only `csv` and `Path`."""
+
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset CSV does not exist: {path}")
+
+    with path.open("r", newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        fieldnames = reader.fieldnames
+        if fieldnames is None:
+            raise ValueError(f"Dataset CSV has no header row: {path}")
+
+        missing_columns = [
+            column for column in REQUIRED_DATASET_COLUMNS if column not in fieldnames
+        ]
+        if missing_columns:
+            raise ValueError(
+                f"Dataset CSV is missing required columns {missing_columns}: {path}"
             )
-        )
 
-    rng.shuffle(examples)
-
-    noisy_examples: list[Example] = []
-    for example in examples:
-        noisy_examples.append(
-            Example(
-                x_position=example.x_position + rng.gauss(0.0, noise),
-                y_position=example.y_position + rng.gauss(0.0, noise),
-                class_label=example.class_label,
+        examples: list[Example] = []
+        for row_number, row in enumerate(reader, start=2):
+            examples.append(
+                Example(
+                    x_position=parse_float(
+                        row.get("x_position"), "x_position", row_number
+                    ),
+                    y_position=parse_float(
+                        row.get("y_position"), "y_position", row_number
+                    ),
+                    class_label=parse_class_label(
+                        row.get("class_label"), row_number
+                    ),
+                )
             )
-        )
 
-    return noisy_examples
+    if len(examples) == 0:
+        raise ValueError(f"Dataset CSV has no data rows: {path}")
+
+    return examples
 
 
 def stratified_train_test_split(
@@ -567,15 +586,6 @@ def train_mlp(
     )
 
 
-def write_examples_csv(path: Path, examples: list[Example]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow(["x_position", "y_position", "class_label"])
-        for example in examples:
-            writer.writerow([example.x_position, example.y_position, example.class_label])
-
-
 def write_loss_history_csv(path: Path, losses: list[float]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as csv_file:
@@ -643,8 +653,7 @@ def parse_args() -> CliOptions:
     parser = argparse.ArgumentParser(
         description="Train a one-hidden-layer MLP from scratch in pure Python."
     )
-    parser.add_argument("--samples", type=int, default=500)
-    parser.add_argument("--noise", type=float, default=0.25)
+    parser.add_argument("--data-path", type=Path, default=DEFAULT_DATA_PATH)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--test-size", type=float, default=0.2)
     parser.add_argument("--hidden-units", type=int, default=16)
@@ -655,8 +664,7 @@ def parse_args() -> CliOptions:
     namespace = parser.parse_args()
 
     return CliOptions(
-        samples=namespace.samples,
-        noise=namespace.noise,
+        data_path=namespace.data_path,
         seed=namespace.seed,
         test_size=namespace.test_size,
         hidden_units=namespace.hidden_units,
@@ -670,11 +678,8 @@ def parse_args() -> CliOptions:
 def main() -> None:
     options = parse_args()
 
-    examples = make_moons(
-        n_samples=options.samples,
-        noise=options.noise,
-        seed=options.seed,
-    )
+    data_path = resolve_data_path(options.data_path)
+    examples = load_examples_csv(data_path)
     split = stratified_train_test_split(
         examples=examples,
         test_size=options.test_size,
@@ -687,7 +692,7 @@ def main() -> None:
 
     print("Pure Python Week 05 MLP")
     print("No torch, numpy, pandas, sklearn, or autograd.")
-    print(f"dataset: {len(examples)} examples")
+    print(f"dataset: {len(examples)} examples from {data_path}")
     print(f"split: {len(split.train)} train / {len(split.test)} test")
     print(f"model: 2 inputs -> {model.hidden_units} ReLU hidden values -> 1 logit")
     print(f"learned numbers: {model.parameter_count()}")
@@ -702,11 +707,9 @@ def main() -> None:
         report_every=options.report_every,
     )
 
-    dataset_path = options.output_dir / "moons.csv"
     history_path = options.output_dir / "training_history.csv"
     boundary_path = options.output_dir / "ascii_decision_boundary.txt"
 
-    write_examples_csv(dataset_path, examples)
     write_loss_history_csv(history_path, result.losses)
     write_text(
         boundary_path,
@@ -721,7 +724,6 @@ def main() -> None:
     print(f"test accuracy:  {result.test_accuracy:.3f}")
     print()
     print("Wrote artifacts:")
-    print(f"- {dataset_path}")
     print(f"- {history_path}")
     print(f"- {boundary_path}")
 
