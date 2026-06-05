@@ -5,6 +5,7 @@ description = "A Week 05 one-hidden-layer MLP implemented with only the Python s
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "pydantic>=2.13.4",
     "ruff>=0.15.16",
 ]
 
