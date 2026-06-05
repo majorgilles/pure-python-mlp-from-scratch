@@ -8,7 +8,7 @@ The goal is not maximum performance. The goal is to understand every moving part
 
 This repository is being redesigned as a beginner-friendly course. The planned course is notebook-first, uses `uv`, and builds toward a real regression task: predicting bike rental demand from a tiny curated dataset.
 
-The previous single-script direction is no longer the baseline. Treat this as a clean course/project design centered on staged notebooks and transparent pure-Python code.
+The course is organized around staged notebooks and transparent pure-Python code, so each concept can be introduced, inspected, and tested step by step.
 
 ## Why this course is useful
 
