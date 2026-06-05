@@ -10,6 +10,21 @@ This repository is being redesigned as a beginner-friendly course. The planned c
 
 The previous single-script direction is no longer the baseline. Treat this as a clean course/project design centered on staged notebooks and transparent pure-Python code.
 
+## Why this course is useful
+
+This course is valuable because it teaches neural networks from the inside out. Instead of starting with a high-level framework and accepting training as a black box, each notebook builds the learning mechanism directly from small numbers, simple formulas, and readable Python code.
+
+Working through the project should help you:
+
+- understand what a prediction, loss, gradient, and parameter update actually are;
+- see backpropagation as repeated chain rule rather than mysterious framework behavior;
+- debug training problems with better intuition about learning rates, gradients, activations, scaling, and loss curves;
+- connect the math to executable code without hiding the important steps behind libraries;
+- build confidence that a neural network is not magic: it is a set of calculations that can be inspected, tested, and improved;
+- use PyTorch or other frameworks later with a clearer mental model of what `.backward()`, optimizers, and trainable parameters are doing.
+
+The benefit is not only learning to build one tiny MLP. The real benefit is developing durable intuition for how networks learn, so larger ML tools feel like scaled-up versions of ideas you have already implemented yourself.
+
 ## What you will build
 
 By the end of the course, you should have:
@@ -32,6 +47,14 @@ This project should stay low-level and explainable:
 - human-readable predictions converted back into bike rental counts.
 
 PyTorch may appear only near the end as an optional comparison, not as part of the from-scratch implementation.
+
+## Learning, authorship, and AI assistance
+
+This project is AI-assisted as a learning tool. AI support is used to explore questions and ideas, organize the learning path, and suggest code and notes while studying how a tiny multilayer perceptron learns from data.
+
+Code in this repository is hand-written as part of the learning process, based on AI suggestions, with the exception of some matplotlib.pyplot graphing code used to generate visualizations. Written explanations in this repo may be AI-summarized from my prompts, inspection, and learning process; they are not presented as my unaided wording.
+
+The inspiration, direction, and curiosity behind the project are mine. This repo is a vehicle for gaining knowledge about neural networks, backpropagation, gradient descent, and small from-scratch ML experiments through inspection, experimentation, and reflection.
 
 ## Planned task: bike rental demand regression
 
