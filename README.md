@@ -128,8 +128,8 @@ If PyTorch is added, it should be isolated for the optional end-of-course compar
 
 The exact notebook names may change, but the course should have about 10-12 small lessons.
 
-1. **Course orientation and tiny numbers**  
-   What the project builds, why small numbers help, and how the final bike-rental task will work.
+1. **First bike-rental prediction**
+   Start from one real bike-rental row, make a simple prediction, measure squared-error loss, and use tiny weight nudges to introduce gradient intuition.
 
 2. **Derivatives from tiny examples**  
    Slopes, nudging a number, and reading a derivative as “how much the output changes.”
