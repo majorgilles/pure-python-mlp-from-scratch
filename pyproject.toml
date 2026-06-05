@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "A Week 05 one-hidden-layer MLP implemented with only the Python standard library."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "ruff>=0.15.16",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
