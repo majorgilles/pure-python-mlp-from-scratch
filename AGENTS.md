@@ -6,3 +6,4 @@
 - Prefer precise standard-library types over untyped `dict`, `list`, or `Any` when the value shape is known.
 - When a structured data object needs validation, parsing, or serialization, prefer a Pydantic `BaseModel` instead of a `dataclass`.
 - Use simple built-in types or type aliases when validation is unnecessary.
+- In learner-facing notebooks and docs, avoid scientific notation for numeric examples; format small floats as readable decimals unless scientific notation is the lesson topic.

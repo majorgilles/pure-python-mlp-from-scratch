@@ -9,7 +9,9 @@ from pathlib import Path
 from urllib.request import urlopen
 
 UCI_ZIP_URL = "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip"
-DEFAULT_OUTPUT_PATH = Path(__file__).resolve().parents[1] / "data" / "bike_rentals_mini.csv"
+DEFAULT_OUTPUT_PATH = (
+    Path(__file__).resolve().parents[1] / "data" / "bike_rentals_mini.csv"
+)
 SAMPLE_SEED = 8
 ROWS_PER_HOUR = 10
 
@@ -88,7 +90,9 @@ def write_teaching_csv(rows: list[dict[str, str]], output_path: Path) -> None:
     """Write the curated teaching rows using only standard-library csv."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8", newline="") as output_file:
-        writer = csv.DictWriter(output_file, fieldnames=OUTPUT_COLUMNS, lineterminator="\n")
+        writer = csv.DictWriter(
+            output_file, fieldnames=OUTPUT_COLUMNS, lineterminator="\n"
+        )
         writer.writeheader()
         for row in rows:
             writer.writerow(to_teaching_row(row))
@@ -105,11 +109,15 @@ def build_dataset(source_hour_csv: Path | None, output_path: Path) -> None:
     write_teaching_csv(selected_rows, output_path)
 
     print(f"Wrote {len(selected_rows)} rows to {output_path}")
-    print(f"Sampling rule: seed={SAMPLE_SEED}, {ROWS_PER_HOUR} rows per hour, sorted by source order")
+    print(
+        f"Sampling rule: seed={SAMPLE_SEED}, {ROWS_PER_HOUR} rows per hour, sorted by source order"
+    )
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prepare the mini bike-rental teaching dataset.")
+    parser = argparse.ArgumentParser(
+        description="Prepare the mini bike-rental teaching dataset."
+    )
     parser.add_argument(
         "--source-hour-csv",
         type=Path,
