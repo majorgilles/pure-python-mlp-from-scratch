@@ -1,5 +1,39 @@
 import os
-from typing import Callable
+
+from typing import Callable, TypeAlias
+
+TensorData: TypeAlias = float | list["TensorData"]
+Shape: TypeAlias = tuple[int, ...]
+TensorGrad: TypeAlias = float | list["TensorGrad"]
+
+
+def _shape_of(data: TensorData) -> Shape:
+    if isinstance(data, float):
+        return ()
+
+    if isinstance(data, list):
+        if not data:
+            return (0,)
+
+        first_shape = _shape_of(data[0])
+
+        for item in data[1:]:
+            if _shape_of(item) != first_shape:
+                raise ValueError("Tensor data must be rectangular.")
+
+        return len(data), *first_shape
+
+    raise TypeError("Tensor data must be a float or nested lists of floats.")
+
+
+def _init_gradients(data: TensorData) -> TensorGrad:
+    if isinstance(data, float):
+        return 0.0
+
+    if isinstance(data, list):
+        return [_init_gradients(item) for item in data]
+
+    raise TypeError("Tensor data must be a float or nested lists of floats.")
 
 
 class Tensor:
@@ -11,13 +45,14 @@ class Tensor:
 
     def __init__(
         self,
-        data: float,
+        data: TensorData,
         _children: tuple["Tensor", ...] = (),
         _op: str = "",
     ) -> None:
         """Store the number, its starting grad, and the Tensors that made it."""
         self.data = data
-        self.grad = 0.0
+        self.shape = _shape_of(data)
+        self.grad = _init_gradients(data)
         self._prev = set(_children)
         self._op = _op
         self._backward: Callable[[], None] = lambda: None
