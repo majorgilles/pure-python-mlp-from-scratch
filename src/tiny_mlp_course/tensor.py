@@ -48,7 +48,13 @@ def _apply_to_pair(
     right: TensorData,
     scalar_operation: Callable[[float, float], float],
 ) -> TensorData:
-    """Apply one scalar operation to matching positions in nested data."""
+    """Apply one scalar operation to matching positions in nested data.
+
+    For scalar data, this calls scalar_operation(left, right) once.
+    For list-shaped data, it walks both lists in lockstep and recursively applies
+    the same scalar operation to each matching pair. This keeps the visible
+    operation rules scalar-like while still supporting non-scalar tensors.
+    """
     if isinstance(left, float) and isinstance(right, float):
         return scalar_operation(left, right)
 
@@ -68,7 +74,13 @@ def _apply_to_each(
     data: TensorData,
     scalar_operation: Callable[[float], float],
 ) -> TensorData:
-    """Apply one scalar operation to every position in nested data."""
+    """Apply one scalar operation to every position in nested data.
+
+    For scalar data, this calls scalar_operation(data) once.
+    For list-shaped data, it recursively walks into each list item and applies
+    the same scalar operation to every float it finds. The output keeps the same
+    nested-list shape as the input.
+    """
     if isinstance(data, float):
         return scalar_operation(data)
 
@@ -155,6 +167,7 @@ class Tensor:
 
             If out = self + other, increasing either input by 1 increases out by 1.
             Each input therefore receives +1 times the result's gradient.
+            For nested data, the same scalar rule is applied element by element.
             """
             # Scalar rule: self.grad += out.grad
             self.grad = _add(self.grad, out.grad)
@@ -179,6 +192,7 @@ class Tensor:
 
             If out = self - other, increasing self by 1 increases out by 1.
             Increasing other by 1 decreases out by 1, so the right input gets a minus sign.
+            For nested data, the same scalar rule is applied element by element.
             """
             # Scalar rule: self.grad += out.grad
             self.grad = _add(self.grad, out.grad)
@@ -203,6 +217,7 @@ class Tensor:
 
             If out = self * other, changing self by 1 changes out by other.data.
             Changing other by 1 changes out by self.data.
+            For nested data, the same scalar rule is applied element by element.
             """
             # Scalar rule: self.grad += other.data * out.grad
             self.grad = _add(self.grad, _mul(other.data, out.grad))
@@ -228,6 +243,7 @@ class Tensor:
 
             If out = self ** 2, changing self by 1 changes out by about 2 * self.data.
             Multiply that local slope by out.grad to pass the final sensitivity backward.
+            For nested data, the same scalar rule is applied element by element.
             """
             slope = _double(self.data)
 
