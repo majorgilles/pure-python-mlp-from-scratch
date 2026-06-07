@@ -1,3 +1,95 @@
+"""Tiny tensor-shaped autograd helper for teaching.
+
+The goal is to keep the scalar gradient rules visible while allowing data to be
+stored as nested Python lists. Helpers such as `_add`, `_sub`, and `_mul` apply
+simple scalar operations element by element; `_apply_to_pair` is the recursive
+list walker that makes those helpers work for 1D, 2D, or deeper tensors.
+
+Example: 2D addition, step by step.
+
+```python
+left = Tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+right = Tensor([[10.0, 20.0, 30.0], [40.0, 50.0, 60.0]])
+out = left + right
+```
+
+The forward call is:
+
+```text
+Tensor.__add__
+  _ensure_same_shape(left, right, "addition")
+  _add(left.data, right.data)
+    _apply_to_pair(left_matrix, right_matrix)
+      _apply_to_pair(left_row_0, right_row_0)
+        scalar_operation(1.0, 10.0) -> 11.0
+        scalar_operation(2.0, 20.0) -> 22.0
+        scalar_operation(3.0, 30.0) -> 33.0
+      _apply_to_pair(left_row_1, right_row_1)
+        scalar_operation(4.0, 40.0) -> 44.0
+        scalar_operation(5.0, 50.0) -> 55.0
+        scalar_operation(6.0, 60.0) -> 66.0
+  Tensor.__init__ for out
+  store out._backward from the addition operation
+```
+
+So `out.data` becomes:
+
+```python
+[[11.0, 22.0, 33.0], [44.0, 55.0, 66.0]]
+```
+
+Because `out` is not scalar, backward needs one starting gradient per output
+position:
+
+```python
+out.backward([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+```
+
+The backward call is:
+
+```text
+Tensor.backward
+  _build_topo(out)  # puts left and right before out
+  _shape_of(initial_gradient) -> (2, 3)
+  out.grad = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+  out._backward()
+```
+
+For addition, `out._backward()` uses the same scalar rule at every position:
+
+```text
+left.grad += out.grad
+right.grad += out.grad
+```
+
+In code, the scalar-looking rule is written with `_add` so it also works on
+nested lists:
+
+```python
+left.grad = _add(left.grad, out.grad)
+right.grad = _add(right.grad, out.grad)
+```
+
+That means the gradient recursion is:
+
+```text
+_add(left.grad, out.grad)
+  _apply_to_pair(left_grad_matrix, out_grad_matrix)
+    _apply_to_pair(left_grad_row_0, out_grad_row_0)
+      scalar_operation(0.0, 1.0) -> 1.0
+      scalar_operation(0.0, 2.0) -> 2.0
+      scalar_operation(0.0, 3.0) -> 3.0
+    _apply_to_pair(left_grad_row_1, out_grad_row_1)
+      scalar_operation(0.0, 4.0) -> 4.0
+      scalar_operation(0.0, 5.0) -> 5.0
+      scalar_operation(0.0, 6.0) -> 6.0
+```
+
+The same recursion updates `right.grad`. The important teaching point is that
+recursion handles the list shape, while `_backward()` still shows the local
+scalar gradient rule.
+"""
+
 import os
 from typing import Callable, TypeAlias
 
