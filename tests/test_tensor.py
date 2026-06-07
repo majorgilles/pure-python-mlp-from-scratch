@@ -72,9 +72,7 @@ def test_tensor_adds_1d_data_elementwise() -> None:
 
 
 def test_tensor_adds_2d_data_elementwise() -> None:
-    result = Tensor([[1.0, 2.0], [3.0, 4.0]]) + Tensor(
-        [[10.0, 20.0], [30.0, 40.0]]
-    )
+    result = Tensor([[1.0, 2.0], [3.0, 4.0]]) + Tensor([[10.0, 20.0], [30.0, 40.0]])
 
     assert result.data == [[11.0, 22.0], [33.0, 44.0]]
     assert result.shape == (2, 2)
