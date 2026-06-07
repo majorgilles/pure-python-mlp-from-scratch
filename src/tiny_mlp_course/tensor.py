@@ -5,15 +5,37 @@ stored as nested Python lists. Helpers such as `_add`, `_sub`, and `_mul` apply
 simple scalar operations element by element; `_apply_to_pair` is the recursive
 list walker that makes those helpers work for 1D, 2D, or deeper tensors.
 
-Example: 2D addition, step by step.
+Long teaching example: adding two 2D tensors.
+
+This example uses several rows and more than two scalar values per row so the
+recursive list walking is visible:
 
 ```python
-left = Tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-right = Tensor([[10.0, 20.0, 30.0], [40.0, 50.0, 60.0]])
+left = Tensor([
+    [1.0, 2.0, 3.0, 4.0],
+    [5.0, 6.0, 7.0, 8.0],
+    [9.0, 10.0, 11.0, 12.0],
+])
+right = Tensor([
+    [10.0, 20.0, 30.0, 40.0],
+    [50.0, 60.0, 70.0, 80.0],
+    [90.0, 100.0, 110.0, 120.0],
+])
 out = left + right
 ```
 
-The forward call is:
+Construction first records shape and creates matching zero gradients:
+
+```text
+Tensor.__init__(left_data)
+  _shape_of(left_data) -> (3, 4)
+  _init_gradients(left_data)
+    -> [[0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0]]
+```
+
+The forward addition call is:
 
 ```text
 Tensor.__add__
@@ -24,10 +46,17 @@ Tensor.__add__
         scalar_operation(1.0, 10.0) -> 11.0
         scalar_operation(2.0, 20.0) -> 22.0
         scalar_operation(3.0, 30.0) -> 33.0
-      _apply_to_pair(left_row_1, right_row_1)
         scalar_operation(4.0, 40.0) -> 44.0
+      _apply_to_pair(left_row_1, right_row_1)
         scalar_operation(5.0, 50.0) -> 55.0
         scalar_operation(6.0, 60.0) -> 66.0
+        scalar_operation(7.0, 70.0) -> 77.0
+        scalar_operation(8.0, 80.0) -> 88.0
+      _apply_to_pair(left_row_2, right_row_2)
+        scalar_operation(9.0, 90.0) -> 99.0
+        scalar_operation(10.0, 100.0) -> 110.0
+        scalar_operation(11.0, 110.0) -> 121.0
+        scalar_operation(12.0, 120.0) -> 132.0
   Tensor.__init__ for out
   store out._backward from the addition operation
 ```
@@ -35,23 +64,33 @@ Tensor.__add__
 So `out.data` becomes:
 
 ```python
-[[11.0, 22.0, 33.0], [44.0, 55.0, 66.0]]
+[
+    [11.0, 22.0, 33.0, 44.0],
+    [55.0, 66.0, 77.0, 88.0],
+    [99.0, 110.0, 121.0, 132.0],
+]
 ```
 
 Because `out` is not scalar, backward needs one starting gradient per output
 position:
 
 ```python
-out.backward([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+out.backward([
+    [1.0, 2.0, 3.0, 4.0],
+    [5.0, 6.0, 7.0, 8.0],
+    [9.0, 10.0, 11.0, 12.0],
+])
 ```
 
-The backward call is:
+The backward setup is:
 
 ```text
 Tensor.backward
   _build_topo(out)  # puts left and right before out
-  _shape_of(initial_gradient) -> (2, 3)
-  out.grad = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+  _shape_of(initial_gradient) -> (3, 4)
+  out.grad = [[1.0, 2.0, 3.0, 4.0],
+              [5.0, 6.0, 7.0, 8.0],
+              [9.0, 10.0, 11.0, 12.0]]
   out._backward()
 ```
 
@@ -70,7 +109,7 @@ left.grad = _add(left.grad, out.grad)
 right.grad = _add(right.grad, out.grad)
 ```
 
-That means the gradient recursion is:
+That means the gradient recursion for `left.grad` is:
 
 ```text
 _add(left.grad, out.grad)
@@ -79,10 +118,27 @@ _add(left.grad, out.grad)
       scalar_operation(0.0, 1.0) -> 1.0
       scalar_operation(0.0, 2.0) -> 2.0
       scalar_operation(0.0, 3.0) -> 3.0
-    _apply_to_pair(left_grad_row_1, out_grad_row_1)
       scalar_operation(0.0, 4.0) -> 4.0
+    _apply_to_pair(left_grad_row_1, out_grad_row_1)
       scalar_operation(0.0, 5.0) -> 5.0
       scalar_operation(0.0, 6.0) -> 6.0
+      scalar_operation(0.0, 7.0) -> 7.0
+      scalar_operation(0.0, 8.0) -> 8.0
+    _apply_to_pair(left_grad_row_2, out_grad_row_2)
+      scalar_operation(0.0, 9.0) -> 9.0
+      scalar_operation(0.0, 10.0) -> 10.0
+      scalar_operation(0.0, 11.0) -> 11.0
+      scalar_operation(0.0, 12.0) -> 12.0
+```
+
+So `left.grad` becomes the initial gradient:
+
+```python
+[
+    [1.0, 2.0, 3.0, 4.0],
+    [5.0, 6.0, 7.0, 8.0],
+    [9.0, 10.0, 11.0, 12.0],
+]
 ```
 
 The same recursion updates `right.grad`. The important teaching point is that
