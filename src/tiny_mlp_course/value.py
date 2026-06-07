@@ -31,9 +31,33 @@ class Value:
         out = Value(data=self.data + other.data, _children=(self, other), _op="+")
 
         def _backward() -> None:
-            """Move this result's grad back to both inputs."""
+            """Move this result's grad back to both inputs.
+
+            If out = self + other, increasing either input by 1 increases out by 1.
+            Each input therefore receives +1 times the result's gradient.
+            """
+            # The left input affects the sum positively: d_out/d_self = 1.
             self.grad += out.grad
+            # The right input also affects the sum positively: d_out/d_other = 1.
             other.grad += out.grad
+
+        out._backward = _backward
+        return out
+
+    def __sub__(self, other: "Value") -> "Value":
+        """Make a new Value for self - other."""
+        out = Value(data=self.data - other.data, _children=(self, other), _op="-")
+
+        def _backward() -> None:
+            """Move this result's grad back to both inputs.
+
+            If out = self - other, increasing self by 1 increases out by 1.
+            Increasing other by 1 decreases out by 1, so the right input gets a minus sign.
+            """
+            # The left input affects the difference positively: d_out/d_self = 1.
+            self.grad += out.grad
+            # The right input is subtracted: d_out/d_other = -1, so subtract out.grad.
+            other.grad -= out.grad
 
         out._backward = _backward
         return out
@@ -43,8 +67,14 @@ class Value:
         out = Value(data=self.data * other.data, _children=(self, other), _op="*")
 
         def _backward() -> None:
-            """Move this result's grad back using the other input's number."""
+            """Move this result's grad back using the other input's number.
+
+            If out = self * other, changing self by 1 changes out by other.data.
+            Changing other by 1 changes out by self.data.
+            """
+            # The left input's slope is the right input's value: d_out/d_self = other.data.
             self.grad += other.data * out.grad
+            # The right input's slope is the left input's value: d_out/d_other = self.data.
             other.grad += self.data * out.grad
 
         out._backward = _backward
@@ -62,10 +92,12 @@ class Value:
         )
 
         def _backward() -> None:
-            """Move this result's grad back using the other input's number.
+            """Move this result's grad back through squaring.
 
-            backward rule: near x = 3.0, changing x changes y about 2 * x times as much.
+            If out = self ** 2, changing self by 1 changes out by about 2 * self.data.
+            Multiply that local slope by out.grad to pass the final sensitivity backward.
             """
+            # The slope of x squared is 2*x, so scale out.grad by 2 * self.data.
             self.grad += 2 * self.data * out.grad
 
         out._backward = _backward
@@ -97,7 +129,10 @@ class Value:
         if os.environ.get("DEBUG"):
             print(f"Order: {topo}")
 
+        # The final Value changes one-for-one with itself, so its starting grad is 1.
         self.grad = 1.0
 
+        # Walk from the final Value back to the leaves so every operation can
+        # pass its gradient contribution to the Values that created it.
         for node in reversed(topo):
             node._backward()
