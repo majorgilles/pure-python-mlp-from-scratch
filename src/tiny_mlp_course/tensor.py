@@ -43,65 +43,76 @@ def _ensure_same_shape(left: "Tensor", right: "Tensor", operation: str) -> None:
         )
 
 
-def _elementwise_binary(
+def _apply_to_pair(
     left: TensorData,
     right: TensorData,
-    operation: Callable[[float, float], float],
+    scalar_operation: Callable[[float, float], float],
 ) -> TensorData:
+    """Apply one scalar operation to matching positions in nested data."""
     if isinstance(left, float) and isinstance(right, float):
-        return operation(left, right)
+        return scalar_operation(left, right)
 
     if isinstance(left, list) and isinstance(right, list):
         if len(left) != len(right):
             raise ValueError("Tensor operation requires matching nested structure.")
 
         return [
-            _elementwise_binary(left_item, right_item, operation)
+            _apply_to_pair(left_item, right_item, scalar_operation)
             for left_item, right_item in zip(left, right)
         ]
 
     raise ValueError("Tensor operation requires matching nested structure.")
 
 
-def _elementwise_unary(
+def _apply_to_each(
     data: TensorData,
-    operation: Callable[[float], float],
+    scalar_operation: Callable[[float], float],
 ) -> TensorData:
+    """Apply one scalar operation to every position in nested data."""
     if isinstance(data, float):
-        return operation(data)
+        return scalar_operation(data)
 
     if isinstance(data, list):
-        return [_elementwise_unary(item, operation) for item in data]
+        return [_apply_to_each(item, scalar_operation) for item in data]
 
     raise ValueError("Tensor operation requires matching nested structure.")
 
 
-def _elementwise_add(left: TensorData, right: TensorData) -> TensorData:
-    return _elementwise_binary(left, right, lambda left_value, right_value: left_value + right_value)
+def _add(left: TensorData, right: TensorData) -> TensorData:
+    """Return left + right, element by element for nested data."""
+    return _apply_to_pair(
+        left,
+        right,
+        lambda left_value, right_value: left_value + right_value,
+    )
 
 
-def _elementwise_subtract(left: TensorData, right: TensorData) -> TensorData:
-    return _elementwise_binary(left, right, lambda left_value, right_value: left_value - right_value)
+def _sub(left: TensorData, right: TensorData) -> TensorData:
+    """Return left - right, element by element for nested data."""
+    return _apply_to_pair(
+        left,
+        right,
+        lambda left_value, right_value: left_value - right_value,
+    )
 
 
-def _elementwise_multiply(left: TensorData, right: TensorData) -> TensorData:
-    return _elementwise_binary(left, right, lambda left_value, right_value: left_value * right_value)
+def _mul(left: TensorData, right: TensorData) -> TensorData:
+    """Return left * right, element by element for nested data."""
+    return _apply_to_pair(
+        left,
+        right,
+        lambda left_value, right_value: left_value * right_value,
+    )
 
 
-def _elementwise_negate(data: TensorData) -> TensorData:
-    return _elementwise_unary(data, lambda value: -value)
+def _square(data: TensorData) -> TensorData:
+    """Return data ** 2, element by element for nested data."""
+    return _apply_to_each(data, lambda value: value * value)
 
 
-def _elementwise_square(data: TensorData) -> TensorData:
-    return _elementwise_unary(data, lambda value: value * value)
-
-
-def _elementwise_square_slope(data: TensorData) -> TensorData:
-    return _elementwise_unary(data, lambda value: 2 * value)
-
-
-def _accumulate_gradients(current: TensorGrad, contribution: TensorGrad) -> TensorGrad:
-    return _elementwise_add(current, contribution)
+def _double(data: TensorData) -> TensorData:
+    """Return 2 * data, element by element for nested data."""
+    return _apply_to_each(data, lambda value: 2 * value)
 
 
 class Tensor:
@@ -134,7 +145,7 @@ class Tensor:
         _ensure_same_shape(self, other, "addition")
 
         out = Tensor(
-            data=_elementwise_add(self.data, other.data),
+            data=_add(self.data, other.data),
             _children=(self, other),
             _op="+",
         )
@@ -145,10 +156,10 @@ class Tensor:
             If out = self + other, increasing either input by 1 increases out by 1.
             Each input therefore receives +1 times the result's gradient.
             """
-            # The left input affects the sum positively: d_out/d_self = 1.
-            self.grad = _accumulate_gradients(self.grad, out.grad)
-            # The right input also affects the sum positively: d_out/d_other = 1.
-            other.grad = _accumulate_gradients(other.grad, out.grad)
+            # Scalar rule: self.grad += out.grad
+            self.grad = _add(self.grad, out.grad)
+            # Scalar rule: other.grad += out.grad
+            other.grad = _add(other.grad, out.grad)
 
         out._backward = _backward
         return out
@@ -158,7 +169,7 @@ class Tensor:
         _ensure_same_shape(self, other, "subtraction")
 
         out = Tensor(
-            data=_elementwise_subtract(self.data, other.data),
+            data=_sub(self.data, other.data),
             _children=(self, other),
             _op="-",
         )
@@ -169,10 +180,10 @@ class Tensor:
             If out = self - other, increasing self by 1 increases out by 1.
             Increasing other by 1 decreases out by 1, so the right input gets a minus sign.
             """
-            # The left input affects the difference positively: d_out/d_self = 1.
-            self.grad = _accumulate_gradients(self.grad, out.grad)
-            # The right input is subtracted: d_out/d_other = -1, so subtract out.grad.
-            other.grad = _accumulate_gradients(other.grad, _elementwise_negate(out.grad))
+            # Scalar rule: self.grad += out.grad
+            self.grad = _add(self.grad, out.grad)
+            # Scalar rule: other.grad -= out.grad
+            other.grad = _sub(other.grad, out.grad)
 
         out._backward = _backward
         return out
@@ -182,7 +193,7 @@ class Tensor:
         _ensure_same_shape(self, other, "multiplication")
 
         out = Tensor(
-            data=_elementwise_multiply(self.data, other.data),
+            data=_mul(self.data, other.data),
             _children=(self, other),
             _op="*",
         )
@@ -193,16 +204,10 @@ class Tensor:
             If out = self * other, changing self by 1 changes out by other.data.
             Changing other by 1 changes out by self.data.
             """
-            # The left input's slope is the right input's value: d_out/d_self = other.data.
-            self.grad = _accumulate_gradients(
-                self.grad,
-                _elementwise_multiply(other.data, out.grad),
-            )
-            # The right input's slope is the left input's value: d_out/d_other = self.data.
-            other.grad = _accumulate_gradients(
-                other.grad,
-                _elementwise_multiply(self.data, out.grad),
-            )
+            # Scalar rule: self.grad += other.data * out.grad
+            self.grad = _add(self.grad, _mul(other.data, out.grad))
+            # Scalar rule: other.grad += self.data * out.grad
+            other.grad = _add(other.grad, _mul(self.data, out.grad))
 
         out._backward = _backward
         return out
@@ -213,7 +218,7 @@ class Tensor:
             raise ValueError(f"Only powers of 2 are supported, not {power}.")
 
         out = Tensor(
-            data=_elementwise_square(self.data),
+            data=_square(self.data),
             _children=(self,),
             _op=f"**{power}",
         )
@@ -224,11 +229,10 @@ class Tensor:
             If out = self ** 2, changing self by 1 changes out by about 2 * self.data.
             Multiply that local slope by out.grad to pass the final sensitivity backward.
             """
-            # The slope of x squared is 2*x, so scale out.grad by 2 * self.data.
-            self.grad = _accumulate_gradients(
-                self.grad,
-                _elementwise_multiply(_elementwise_square_slope(self.data), out.grad),
-            )
+            slope = _double(self.data)
+
+            # Scalar rule: self.grad += (2 * self.data) * out.grad
+            self.grad = _add(self.grad, _mul(slope, out.grad))
 
         out._backward = _backward
         return out
