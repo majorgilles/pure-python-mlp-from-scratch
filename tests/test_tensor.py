@@ -85,6 +85,25 @@ def test_tensor_rejects_add_with_different_shapes() -> None:
         Tensor([1.0, 2.0]) + Tensor([3.0])
 
 
+def test_tensor_adds_2d_gradients_elementwise() -> None:
+    left = Tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    right = Tensor([[10.0, 20.0, 30.0], [40.0, 50.0, 60.0]])
+
+    result = left + right
+
+    # The initial gradient has one value per output position.
+    # backward() stores it on result.grad before calling result._backward().
+    result.backward([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+    # Addition backward uses the scalar rule left.grad += result.grad.
+    # For a 2D tensor, _add walks row by row, then scalar by scalar.
+    assert left.grad == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+
+    # Addition backward also uses the scalar rule right.grad += result.grad.
+    # No matrix position mixes with another position during elementwise addition.
+    assert right.grad == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+
+
 def test_tensor_adds_1d_gradients_elementwise() -> None:
     left = Tensor([1.0, 2.0])
     right = Tensor([3.0, 4.0])

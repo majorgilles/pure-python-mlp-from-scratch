@@ -52,8 +52,10 @@ def _apply_to_pair(
 
     For scalar data, this calls scalar_operation(left, right) once.
     For list-shaped data, it walks both lists in lockstep and recursively applies
-    the same scalar operation to each matching pair. This keeps the visible
-    operation rules scalar-like while still supporting non-scalar tensors.
+    the same scalar operation to each matching pair. For a 2D tensor, that means
+    it first pairs row 0 with row 0, row 1 with row 1, and so on; inside each row,
+    it pairs the matching scalar positions. This keeps the visible operation
+    rules scalar-like while still supporting non-scalar tensors.
     """
     if isinstance(left, float) and isinstance(right, float):
         return scalar_operation(left, right)
